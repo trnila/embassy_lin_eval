@@ -11,7 +11,11 @@ use panic_halt as _;
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::*;
+use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::{
+    adc::{Adc, SampleTime},
+    peripherals::*,
+};
 use embassy_stm32::{
     bind_interrupts,
     gpio::{Input, Level, Output, Pull, Speed},
@@ -109,10 +113,41 @@ async fn main(spawner: Spawner) {
     let rx_buf: &mut [u8; 32] = singleton!(RX_BUF: [u8; 32] = [0; 32]).unwrap();
     let uart = BufferedUart::new(p.USART2, UARTIRqs, p.PA3, p.PA2, tx_buf, rx_buf, config).unwrap();
 
+    let read_buffer: &mut [u16; 2] = singleton!(ADC_BUF: [u16; 2] = [0; 2]).unwrap();
+    let mut adc = Adc::new(p.ADC1);
+    let mut dma = p.DMA1_CH1;
+    let mut vrefint_channel = adc.enable_vrefint().degrade_adc();
+    let mut pa0 = p.PA0.degrade_adc();
+
     spawner.spawn(lin_slave_task(uart)).unwrap();
 
     loop {
-        info!("{} {} {}", p2.get_level(), p1.get_level(), p0.get_level());
+        adc.read(
+            &mut dma,
+            [
+                (&mut vrefint_channel, SampleTime::CYCLES160_5),
+                (&mut pa0, SampleTime::CYCLES160_5),
+            ]
+            .into_iter(),
+            read_buffer,
+        )
+        .await;
+
+        let vrefint = read_buffer[1];
+        let measured = read_buffer[0];
+
+        const VREFINT_MV: u32 = 1212; // mV
+        let measured_mv: u16 = (u32::from(measured) * VREFINT_MV / u32::from(vrefint)) as u16;
+
+        info!(
+            "{} {} {} vrefint: {} PA0: {} {}mV",
+            p2.get_level(),
+            p1.get_level(),
+            p0.get_level(),
+            vrefint,
+            measured,
+            measured_mv
+        );
         led_r.set_high();
         led_g.set_high();
         led_b.set_high();
