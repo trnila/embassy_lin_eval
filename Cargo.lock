@@ -516,6 +516,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "lin-bus"
+version = "0.4.0"
+source = "git+https://github.com/trnila/lin-bus-rs?rev=4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e#4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e"
+dependencies = [
+ "bitfield",
+ "byteorder",
+ "num-traits",
+]
+
+[[package]]
 name = "lin_eval"
 version = "0.1.0"
 dependencies = [
@@ -528,6 +538,8 @@ dependencies = [
  "embassy-stm32",
  "embassy-sync",
  "embassy-time",
+ "embedded-io-async",
+ "lin-bus",
  "panic-halt",
  "panic-probe",
 ]
@@ -616,9 +628,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.88"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c3a7fc5db1e57d5a779a352c8cdb57b29aa4c40cc69c3a68a7fedc815fbf2f9"
+checksum = "f139b0662de085916d1fb67d2b4169d1addddda1919e696f3252b740b629986e"
 dependencies = [
  "unicode-ident",
 ]

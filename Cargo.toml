@@ -13,6 +13,8 @@ embassy-futures = "0.1.1"
 embassy-stm32 = { version = "0.1.0", features = ["memory-x", "stm32g030k8", "time-driver-any", "exti", "unstable-pac"] }
 embassy-sync = "0.6.0"
 embassy-time = { version = "0.3.2", features = ["tick-hz-32_768"] }
+embedded-io-async = "0.6.1"
+lin-bus = "0.4.0"
 panic-halt = "0.2.0"
 panic-probe = { version = "0.3.2", features = ["print-defmt"], optional = true }
 
@@ -51,6 +53,7 @@ debug = [
 ]
 
 [patch.crates-io]
+lin-bus = { git = "https://github.com/trnila/lin-bus-rs", rev = "4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e"}
 embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
 embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
 embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
