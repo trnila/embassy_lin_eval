@@ -10,7 +10,7 @@ defmt = { version = "0.3.8", optional = true }
 defmt-rtt = { version = "0.4.1", optional = true }
 embassy-executor = { version = "0.6.0", features = ["arch-cortex-m", "executor-thread", "integrated-timers"] }
 embassy-futures = "0.1.1"
-embassy-stm32 = { version = "0.1.0", features = ["memory-x", "stm32g030k8", "time-driver-any", "exti", "unstable-pac"] }
+embassy-stm32 = { version = "0.1.0", features = ["memory-x", "stm32g030k8", "time-driver-tim1", "exti", "unstable-pac"] }
 embassy-sync = "0.6.0"
 embassy-time = { version = "0.3.2", features = ["tick-hz-32_768"] }
 embedded-io-async = "0.6.1"
