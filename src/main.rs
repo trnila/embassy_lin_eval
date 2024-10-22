@@ -93,9 +93,30 @@ async fn adc_task(
     }
 }
 
+fn get_board_id(pins: &[Input]) -> u8 {
+    return pins
+        .iter()
+        .enumerate()
+        .map(|(pos, pin)| {
+            if pin.is_low() {
+                2u8.pow((pins.len() - 1 - pos) as u32)
+            } else {
+                0
+            }
+        })
+        .sum();
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
+
+    let board_id = get_board_id(&[
+        Input::new(p.PB9, Pull::Up),
+        Input::new(p.PB8, Pull::Up),
+        Input::new(p.PB7, Pull::Up),
+    ]);
+    info!("Board id: {}", board_id);
 
     let leds = [
         Output::new(p.PA8, Level::Low, Speed::Low),
@@ -103,12 +124,7 @@ async fn main(spawner: Spawner) {
         Output::new(p.PA12, Level::Low, Speed::Low),
         Output::new(p.PA11, Level::Low, Speed::Low),
     ];
-
     let _lin_sleep = Output::new(p.PA4, Level::High, Speed::Low);
-
-    let p2 = Input::new(p.PB9, Pull::Up);
-    let p1 = Input::new(p.PB8, Pull::Up);
-    let p0 = Input::new(p.PB7, Pull::Up);
 
     let rgb_blue_ch = PwmPin::new_ch1(p.PA6, OutputType::PushPull);
     let rgb_red_ch = PwmPin::new_ch2(p.PA7, OutputType::PushPull);
@@ -147,7 +163,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(adc_task(adc, dma, pa0)).unwrap();
 
     loop {
-        info!("{} {} {}", p2.get_level(), p1.get_level(), p0.get_level());
         Timer::after(Duration::from_millis(500)).await;
     }
 }
