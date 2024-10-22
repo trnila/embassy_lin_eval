@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+mod rgb;
+
 use cortex_m::singleton;
 use defmt::info;
 use lin_bus::{Frame, PID};
@@ -9,8 +11,15 @@ use panic_halt as _;
 #[cfg(feature = "defmt")]
 use {defmt_rtt as _, panic_probe as _};
 
+use crate::rgb::RGBLed;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::timer::Channel as TimChannel;
+use embassy_stm32::{
+    adc::AdcChannel,
+    gpio::OutputType,
+    time::khz,
+    timer::simple_pwm::{PwmPin, SimplePwm},
+};
 use embassy_stm32::{
     adc::{Adc, SampleTime},
     peripherals::*,
@@ -85,9 +94,6 @@ fn lin_command_size(pid: PID) -> Option<usize> {
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
-    let mut led_r = Output::new(p.PA6, Level::Low, Speed::Low);
-    let mut led_g = Output::new(p.PA7, Level::Low, Speed::Low);
-    let mut led_b = Output::new(p.PB0, Level::Low, Speed::Low);
 
     let mut led_0 = Output::new(p.PA8, Level::Low, Speed::Low);
     let mut led_1 = Output::new(p.PB3, Level::Low, Speed::Low);
@@ -99,6 +105,22 @@ async fn main(spawner: Spawner) {
     let p2 = Input::new(p.PB9, Pull::Up);
     let p1 = Input::new(p.PB8, Pull::Up);
     let p0 = Input::new(p.PB7, Pull::Up);
+
+    let rgb_blue_ch = PwmPin::new_ch1(p.PA6, OutputType::PushPull);
+    let rgb_red_ch = PwmPin::new_ch2(p.PA7, OutputType::PushPull);
+    let rgb_green_ch = PwmPin::new_ch3(p.PB0, OutputType::PushPull);
+
+    let pwm = SimplePwm::new(
+        p.TIM3,
+        Some(rgb_blue_ch),
+        Some(rgb_red_ch),
+        Some(rgb_green_ch),
+        None,
+        khz(1),
+        Default::default(),
+    );
+    let mut pwm_rgb = RGBLed::new(pwm, TimChannel::Ch2, TimChannel::Ch3, TimChannel::Ch1);
+    pwm_rgb.set(0, 0, 255);
 
     let config = {
         let mut config = usart::Config::default();
@@ -146,17 +168,11 @@ async fn main(spawner: Spawner) {
             measured,
             measured_mv
         );
-        led_r.set_high();
-        led_g.set_high();
-        led_b.set_high();
         led_0.set_high();
         led_1.set_high();
         led_2.set_high();
         led_3.set_high();
         Timer::after(Duration::from_millis(500)).await;
-        led_r.set_low();
-        led_g.set_low();
-        led_b.set_low();
         led_0.set_low();
         led_1.set_low();
         led_2.set_low();
