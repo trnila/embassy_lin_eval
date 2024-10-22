@@ -1,9 +1,8 @@
 #![no_std]
 #![no_main]
 
-mod fmt;
-
 use cortex_m::singleton;
+use defmt::info;
 use lin_bus::{Frame, PID};
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
@@ -24,7 +23,6 @@ use embassy_stm32::{
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Read;
 use embedded_io_async::Write;
-use fmt::info;
 
 bind_interrupts!(struct UARTIRqs {
     USART2 => usart::BufferedInterruptHandler<USART2>;
