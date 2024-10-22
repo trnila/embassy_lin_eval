@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "lin-eval-commander"
+version = "0.0.1"
+description = ""
+authors = ["Daniel Trnka <daniel.trnka@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+plin-linux = "^0.0.3"
+ldfparser = "^0.25.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

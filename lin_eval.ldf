@@ -1,0 +1,30 @@
+LIN_description_file;
+LIN_protocol_version = "2.0";
+LIN_language_version = "2.0";
+LIN_speed = 19.2 kbps;
+
+Nodes {
+	Master: commander, 10 ms, 0.9 ms;
+	Slaves: eval_0;
+}
+
+Signals {
+	eval_0_rgb_r: 8, 0, commander, eval_0;
+	eval_0_rgb_g: 8, 0, commander, eval_0;
+	eval_0_rgb_b: 8, 0, commander, eval_0;
+}
+
+Frames {
+	eval_0_rgb: 0, commander, 3 {
+		eval_0_rgb_r, 0;
+		eval_0_rgb_g, 8;
+		eval_0_rgb_b, 16;
+	}
+}
+
+Node_attributes {
+	eval_0 {
+		LIN_protocol = 2.0;
+		configured_NAD = 0;
+	}
+}

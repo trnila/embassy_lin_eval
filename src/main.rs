@@ -5,6 +5,7 @@ mod rgb;
 
 use cortex_m::singleton;
 use defmt::info;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use lin_bus::{Frame, PID};
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
@@ -36,6 +37,17 @@ use embedded_io_async::Write;
 bind_interrupts!(struct UARTIRqs {
     USART2 => usart::BufferedInterruptHandler<USART2>;
 });
+
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+struct Rgb {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+static SIGNAL_RGB: Signal<CriticalSectionRawMutex, Rgb> = Signal::new();
+
+const LIN_FRAME_RGB: u8 = 0;
 
 #[embassy_executor::task]
 async fn lin_slave_task(mut uart: BufferedUart<'static>) {
@@ -71,9 +83,24 @@ async fn lin_slave_task(mut uart: BufferedUart<'static>) {
             let valid = frame.get_checksum() == buf[len];
 
             info!("{} {:x} {}", pid.get_id(), buf[..=len], valid);
+            if valid {
+                lin_slave_process(frame.get_pid().get_id(), frame.get_data());
+            }
         } else {
             info!("drop unknown");
         }
+    }
+}
+
+fn lin_slave_process(id: u8, data: &[u8]) {
+    if id == LIN_FRAME_RGB {
+        let color = Rgb {
+            r: data[0],
+            g: data[1],
+            b: data[2],
+        };
+        info!("got color: {}", color);
+        SIGNAL_RGB.signal(color);
     }
 }
 
@@ -86,9 +113,17 @@ fn lin_slave_response(pid: PID) -> Option<Frame> {
 
 fn lin_command_size(pid: PID) -> Option<usize> {
     Some(match pid.get_id() {
-        12 => 8,
+        LIN_FRAME_RGB => 3,
         _ => return None,
     })
+}
+
+#[embassy_executor::task]
+async fn rgb_task(mut led: RGBLed<TIM3>) {
+    loop {
+        let req = SIGNAL_RGB.wait().await;
+        led.set(req.r, req.g, req.b);
+    }
 }
 
 #[embassy_executor::main]
@@ -140,6 +175,7 @@ async fn main(spawner: Spawner) {
     let mut pa0 = p.PA0.degrade_adc();
 
     spawner.spawn(lin_slave_task(uart)).unwrap();
+    spawner.spawn(rgb_task(pwm_rgb)).unwrap();
 
     loop {
         adc.read(
