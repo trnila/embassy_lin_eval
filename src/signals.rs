@@ -9,3 +9,4 @@ pub struct Rgb {
 
 pub static SIGNAL_RGB: Signal<CriticalSectionRawMutex, Rgb> = Signal::new();
 pub static SIGNAL_LEDS: Signal<CriticalSectionRawMutex, [u8; 4]> = Signal::new();
+pub static SIGNAL_PHOTORESISTOR: Signal<CriticalSectionRawMutex, u16> = Signal::new();

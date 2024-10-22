@@ -17,6 +17,8 @@ Signals {
 	eval_0_led1: 1, 0, commander, eval_0;
 	eval_0_led2: 1, 0, commander, eval_0;
 	eval_0_led3: 1, 0, commander, eval_0;
+
+	eval_0_photores_mV: 16, 0, eval_0, commander;
 }
 
 Frames {
@@ -31,6 +33,10 @@ Frames {
 		eval_0_led1, 1;
 		eval_0_led2, 2;
 		eval_0_led3, 3;
+	}
+
+	eval_0_photores: 2, eval_0, 2 {
+		eval_0_photores_mV, 0;
 	}
 }
 

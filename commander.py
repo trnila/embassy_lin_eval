@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import time
-from typing import List
+from typing import List, Mapping
 from plin.device import PLIN
 from plin.structs import PLINMessage
 from plin.enums import (
@@ -106,6 +106,7 @@ class RGBTask(Task):
 class Scheduler:
     def __init__(self):
         self.db = ldfparser.parse_ldf("lin_eval.ldf")
+        self.rx_frames: Mapping[int, ldfparser.LinUnconditionalFrame] = {}
 
         self.plin = PLIN(interface="/dev/plin0")
         self.plin.start(mode=PLINMode.MASTER, baudrate=19200)
@@ -115,8 +116,21 @@ class Scheduler:
         self.tasks.add(10, RGBTask(self.add_master_frame("eval_0_rgb")))
         self.tasks.add(200, SnakeLedsTask(self.add_master_frame("eval_0_leds")))
 
+        self.add_slave_frame("eval_0_photores")
+
     def add_master_frame(self, name: str) -> Frame:
         return Frame(self.plin, self.db.get_frame(name))
+
+    def add_slave_frame(self, name: str):
+        frame = self.db.get_frame(name)
+        self.plin.set_frame_entry(
+            frame.frame_id,
+            PLINFrameDirection.SUBSCRIBER_AUTO_LEN,
+            PLINFrameChecksumType.ENHANCED,
+            PLINFrameFlag.NONE,
+        )
+        self.plin.add_unconditional_schedule_slot(SCHEDULER_SLOT, 100, frame.frame_id)
+        self.rx_frames[frame.frame_id] = frame
 
     def run(self):
         self.plin.start_schedule(SCHEDULER_SLOT)
@@ -132,7 +146,12 @@ class Scheduler:
                 if frame.flags:
                     print(PLINFrameErrorFlag(frame.flags))
                 else:
-                    print(f"[{frame.len}] {bytearray(frame.data[:frame.len]).hex(' ')}")
+                    data = bytearray(frame.data[: frame.len])
+                    print(f"[{frame.len}] {data.hex(' ')}")
+
+                    frame_db = self.rx_frames.get(frame.id, None)
+                    if frame_db:
+                        print(frame_db.decode(data))
 
 
 Scheduler().run()

@@ -7,13 +7,20 @@ use lin_bus::PID;
 
 use crate::signals::Rgb;
 use crate::signals::SIGNAL_LEDS;
+use crate::signals::SIGNAL_PHOTORESISTOR;
 use crate::signals::SIGNAL_RGB;
 
 const LIN_FRAME_RGB: u8 = 0;
 const LIN_FRAME_LEDS: u8 = 1;
+const LIN_FRAME_PHOTORES: u8 = 2;
+
+struct FrameResponses {
+    photores: [u8; 2],
+}
 
 #[embassy_executor::task]
 pub async fn lin_slave_task(mut uart: BufferedUart<'static>) {
+    let mut frames = FrameResponses { photores: [0; 2] };
     loop {
         let mut buf = [0u8; 1];
         uart.read_exact(&mut buf).await.unwrap();
@@ -33,7 +40,7 @@ pub async fn lin_slave_task(mut uart: BufferedUart<'static>) {
             continue;
         }
         let pid = pid.unwrap();
-        if let Some(frame) = lin_slave_response(pid) {
+        if let Some(frame) = lin_slave_response(pid, &mut frames) {
             uart.write_all(frame.get_data_with_checksum())
                 .await
                 .unwrap();
@@ -71,9 +78,15 @@ fn lin_slave_process(id: u8, data: &[u8]) {
     }
 }
 
-fn lin_slave_response(pid: PID) -> Option<Frame> {
+fn lin_slave_response(pid: PID, state: &mut FrameResponses) -> Option<Frame> {
     match pid.get_id() {
-        8 => Some(Frame::from_data(pid, &[0xaa, 0xbb])),
+        LIN_FRAME_PHOTORES => {
+            if let Some(millivolts) = SIGNAL_PHOTORESISTOR.try_take() {
+                state.photores[0] = (millivolts & 0xFF) as u8;
+                state.photores[1] = ((millivolts >> 8) & 0xFF) as u8;
+            }
+            Some(Frame::from_data(pid, &state.photores))
+        }
         _ => None,
     }
 }
