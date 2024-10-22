@@ -124,7 +124,7 @@ async fn main(spawner: Spawner) {
         Output::new(p.PA12, Level::Low, Speed::Low),
         Output::new(p.PA11, Level::Low, Speed::Low),
     ];
-    let _lin_sleep = Output::new(p.PA4, Level::High, Speed::Low);
+    let lin_sleep = Output::new(p.PA4, Level::High, Speed::Low);
 
     let rgb_blue_ch = PwmPin::new_ch1(p.PA6, OutputType::PushPull);
     let rgb_red_ch = PwmPin::new_ch2(p.PA7, OutputType::PushPull);
@@ -157,12 +157,8 @@ async fn main(spawner: Spawner) {
     let dma = p.DMA1_CH1;
     let pa0 = p.PA0.degrade_adc();
 
-    spawner.spawn(lin_slave_task(uart)).unwrap();
+    spawner.spawn(lin_slave_task(uart, lin_sleep)).unwrap();
     spawner.spawn(rgb_task(pwm_rgb)).unwrap();
     spawner.spawn(leds_task(leds)).unwrap();
     spawner.spawn(adc_task(adc, dma, pa0)).unwrap();
-
-    loop {
-        Timer::after(Duration::from_millis(500)).await;
-    }
 }

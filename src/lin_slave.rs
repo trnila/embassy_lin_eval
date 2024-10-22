@@ -1,4 +1,5 @@
 use defmt::info;
+use embassy_stm32::gpio::Output;
 use embassy_stm32::usart::BufferedUart;
 use embedded_io_async::Read;
 use embedded_io_async::Write;
@@ -19,7 +20,7 @@ struct FrameResponses {
 }
 
 #[embassy_executor::task]
-pub async fn lin_slave_task(mut uart: BufferedUart<'static>) {
+pub async fn lin_slave_task(mut uart: BufferedUart<'static>, _lin_sleep: Output<'static>) {
     let mut frames = FrameResponses { photores: [0; 2] };
     loop {
         let mut buf = [0u8; 1];
