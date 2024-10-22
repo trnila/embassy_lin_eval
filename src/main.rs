@@ -139,8 +139,7 @@ async fn main(spawner: Spawner) {
         khz(1),
         Default::default(),
     );
-    let mut pwm_rgb = RGBLed::new(pwm, TimChannel::Ch2, TimChannel::Ch3, TimChannel::Ch1);
-    pwm_rgb.set(0, 0, 255);
+    let pwm_rgb = RGBLed::new(pwm, TimChannel::Ch2, TimChannel::Ch3, TimChannel::Ch1);
 
     let config = {
         let mut config = usart::Config::default();
