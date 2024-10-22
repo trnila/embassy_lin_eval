@@ -46,8 +46,10 @@ struct Rgb {
 }
 
 static SIGNAL_RGB: Signal<CriticalSectionRawMutex, Rgb> = Signal::new();
+static SIGNAL_LEDS: Signal<CriticalSectionRawMutex, [u8; 4]> = Signal::new();
 
 const LIN_FRAME_RGB: u8 = 0;
+const LIN_FRAME_LEDS: u8 = 1;
 
 #[embassy_executor::task]
 async fn lin_slave_task(mut uart: BufferedUart<'static>) {
@@ -101,6 +103,10 @@ fn lin_slave_process(id: u8, data: &[u8]) {
         };
         info!("got color: {}", color);
         SIGNAL_RGB.signal(color);
+    } else if id == LIN_FRAME_LEDS {
+        let leds = [data[0] & 1, data[0] & 2, data[0] & 4, data[0] & 8];
+        info!("got leds: {}", leds);
+        SIGNAL_LEDS.signal(leds);
     }
 }
 
@@ -114,6 +120,7 @@ fn lin_slave_response(pid: PID) -> Option<Frame> {
 fn lin_command_size(pid: PID) -> Option<usize> {
     Some(match pid.get_id() {
         LIN_FRAME_RGB => 3,
+        LIN_FRAME_LEDS => 1,
         _ => return None,
     })
 }
@@ -126,14 +133,29 @@ async fn rgb_task(mut led: RGBLed<TIM3>) {
     }
 }
 
+#[embassy_executor::task]
+async fn leds_task(mut leds: [Output<'static>; 4]) {
+    loop {
+        let req = SIGNAL_LEDS.wait().await;
+        for (led, state) in leds.iter_mut().zip(req) {
+            led.set_level(match state {
+                0 => Level::Low,
+                _ => Level::High,
+            });
+        }
+    }
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
 
-    let mut led_0 = Output::new(p.PA8, Level::Low, Speed::Low);
-    let mut led_1 = Output::new(p.PB3, Level::Low, Speed::Low);
-    let mut led_2 = Output::new(p.PA12, Level::Low, Speed::Low);
-    let mut led_3 = Output::new(p.PA11, Level::Low, Speed::Low);
+    let leds = [
+        Output::new(p.PA8, Level::Low, Speed::Low),
+        Output::new(p.PB3, Level::Low, Speed::Low),
+        Output::new(p.PA12, Level::Low, Speed::Low),
+        Output::new(p.PA11, Level::Low, Speed::Low),
+    ];
 
     let _lin_sleep = Output::new(p.PA4, Level::High, Speed::Low);
 
@@ -176,6 +198,7 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(lin_slave_task(uart)).unwrap();
     spawner.spawn(rgb_task(pwm_rgb)).unwrap();
+    spawner.spawn(leds_task(leds)).unwrap();
 
     loop {
         adc.read(
@@ -204,15 +227,6 @@ async fn main(spawner: Spawner) {
             measured,
             measured_mv
         );
-        led_0.set_high();
-        led_1.set_high();
-        led_2.set_high();
-        led_3.set_high();
-        Timer::after(Duration::from_millis(500)).await;
-        led_0.set_low();
-        led_1.set_low();
-        led_2.set_low();
-        led_3.set_low();
         Timer::after(Duration::from_millis(500)).await;
     }
 }
