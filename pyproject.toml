@@ -3,6 +3,7 @@ name = "lin-eval-commander"
 version = "0.0.1"
 description = ""
 authors = ["Daniel Trnka <daniel.trnka@gmail.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.8"
