@@ -62,8 +62,8 @@ async fn leds_task(mut leds: [Output<'static>; 4]) {
 }
 
 #[embassy_executor::task]
-async fn lin_slave_task(uart: BufferedUart<'static>, _lin_sleep: Output<'static>) {
-    let handler = LinHandler::new();
+async fn lin_slave_task(uart: BufferedUart<'static>, _lin_sleep: Output<'static>, board_id: u8) {
+    let handler = LinHandler::new(board_id);
     lin_slave_driver(uart, handler).await;
 }
 
@@ -164,7 +164,9 @@ async fn main(spawner: Spawner) {
     let dma = p.DMA1_CH1;
     let pa0 = p.PA0.degrade_adc();
 
-    spawner.spawn(lin_slave_task(uart, lin_sleep)).unwrap();
+    spawner
+        .spawn(lin_slave_task(uart, lin_sleep, board_id))
+        .unwrap();
     spawner.spawn(rgb_task(pwm_rgb)).unwrap();
     spawner.spawn(leds_task(leds)).unwrap();
     spawner.spawn(adc_task(adc, dma, pa0)).unwrap();
