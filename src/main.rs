@@ -1,12 +1,14 @@
 #![no_std]
 #![no_main]
 
-mod lin_slave;
+mod lin_slave_driver;
+mod lin_slave_handler;
 mod rgb;
 mod signals;
 
 use cortex_m::singleton;
 use defmt::info;
+use lin_slave_handler::LinHandler;
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
 use signals::{SIGNAL_LEDS, SIGNAL_PHOTORESISTOR, SIGNAL_RGB};
@@ -32,7 +34,7 @@ use embassy_stm32::{
     usart::{self, BufferedUart},
 };
 use embassy_time::{Duration, Timer};
-use lin_slave::lin_slave_task;
+use lin_slave_driver::lin_slave_driver;
 
 bind_interrupts!(struct UARTIRqs {
     USART2 => usart::BufferedInterruptHandler<USART2>;
@@ -57,6 +59,12 @@ async fn leds_task(mut leds: [Output<'static>; 4]) {
             });
         }
     }
+}
+
+#[embassy_executor::task]
+async fn lin_slave_task(uart: BufferedUart<'static>, _lin_sleep: Output<'static>) {
+    let handler = LinHandler::new();
+    lin_slave_driver(uart, handler).await;
 }
 
 #[embassy_executor::task]
