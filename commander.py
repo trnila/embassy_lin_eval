@@ -13,6 +13,7 @@ from plin.enums import (
 import os
 import ldfparser
 from dataclasses import dataclass
+import argparse
 
 
 SCHEDULER_SLOT = 0
@@ -68,8 +69,9 @@ class TaskScheduler:
 
 
 class SnakeLedsTask(Task):
-    def __init__(self, frame: Frame):
-        self.frame = frame
+    def __init__(self, scheduler: "Scheduler", board_id: int):
+        self.frame = scheduler.add_master_frame(f"eval_{board_id}_leds")
+        self.board_id = board_id
         self.pos = 0
         self.leds = [0] * 4
 
@@ -78,13 +80,17 @@ class SnakeLedsTask(Task):
         self.pos = (self.pos + 1) % len(self.leds)
 
         self.frame.update(
-            {f"eval_0_led{led}": state for led, state in enumerate(self.leds)}
+            {
+                f"eval_{self.board_id}_led{led}": state
+                for led, state in enumerate(self.leds)
+            }
         )
 
 
 class RGBTask(Task):
-    def __init__(self, frame: Frame):
-        self.frame = frame
+    def __init__(self, scheduler: "Scheduler", board_id: int):
+        self.frame = scheduler.add_master_frame(f"eval_{board_id}_rgb")
+        self.board_id = board_id
         self.color = [0] * 3
         self.ch = 0
 
@@ -96,15 +102,15 @@ class RGBTask(Task):
 
         self.frame.update(
             {
-                "eval_0_rgb_r": self.color[0],
-                "eval_0_rgb_g": self.color[1],
-                "eval_0_rgb_b": self.color[2],
+                f"eval_{self.board_id}_rgb_r": self.color[0],
+                f"eval_{self.board_id}_rgb_g": self.color[1],
+                f"eval_{self.board_id}_rgb_b": self.color[2],
             }
         )
 
 
 class Scheduler:
-    def __init__(self):
+    def __init__(self, boards: List[int]):
         self.db = ldfparser.parse_ldf("lin_eval.ldf")
         self.rx_frames: Mapping[int, ldfparser.LinUnconditionalFrame] = {}
 
@@ -113,8 +119,9 @@ class Scheduler:
         self.plin.set_id_filter(bytearray([0xFF] * 8))
 
         self.tasks = TaskScheduler()
-        self.tasks.add(10, RGBTask(self.add_master_frame("eval_0_rgb")))
-        self.tasks.add(200, SnakeLedsTask(self.add_master_frame("eval_0_leds")))
+        for board in boards:
+            self.tasks.add(10, RGBTask(self, board))
+            self.tasks.add(200, SnakeLedsTask(self, board))
 
         self.add_slave_frame("eval_0_photores")
 
@@ -154,4 +161,10 @@ class Scheduler:
                         print(frame_db.decode(data))
 
 
-Scheduler().run()
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--boards", "-b", default=[0, 1, 2], type=lambda s: [int(b) for b in s.split(",")]
+)
+args = parser.parse_args()
+
+Scheduler(args.boards).run()
