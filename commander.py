@@ -23,6 +23,7 @@ class Frame:
     def __init__(self, plin: PLIN, frame: ldfparser.LinUnconditionalFrame):
         self.plin = plin
         self.frame = frame
+        self.signals = {}
 
         data = frame.encode({})
         self.plin.set_frame_entry(
@@ -36,7 +37,8 @@ class Frame:
         self.plin.add_unconditional_schedule_slot(SCHEDULER_SLOT, 100, frame.frame_id)
 
     def update(self, data):
-        encoded = self.frame.encode(data)
+        self.signals.update(data)
+        encoded = self.frame.encode(self.signals)
         self.plin.set_frame_entry_data(self.frame.frame_id, 0, encoded, len(encoded))
 
 
