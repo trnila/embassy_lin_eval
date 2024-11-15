@@ -22,6 +22,7 @@ use embassy_stm32::{
     gpio::OutputType,
     time::khz,
     timer::simple_pwm::{PwmPin, SimplePwm},
+    wdg::IndependentWatchdog,
 };
 use embassy_stm32::{adc::AnyAdcChannel, timer::Channel as TimChannel};
 use embassy_stm32::{
@@ -101,6 +102,14 @@ async fn adc_task(
     }
 }
 
+#[embassy_executor::task]
+async fn watchdog_task(mut wdg: IndependentWatchdog<'static, IWDG>) {
+    loop {
+        Timer::after_secs(1).await;
+        wdg.pet();
+    }
+}
+
 fn get_board_id(pins: &[Input]) -> u8 {
     return pins
         .iter()
@@ -118,6 +127,9 @@ fn get_board_id(pins: &[Input]) -> u8 {
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
+    let mut wdg = IndependentWatchdog::new(p.IWDG, 2_000_000);
+    wdg.unleash();
+    spawner.spawn(watchdog_task(wdg)).unwrap();
 
     let board_id = get_board_id(&[
         Input::new(p.PB9, Pull::Up),
