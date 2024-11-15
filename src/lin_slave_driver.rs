@@ -31,7 +31,7 @@ pub async fn lin_slave_driver<T: LinSlaveHandler>(mut uart: BufferedUart<'static
 
         uart.read_exact(&mut buf).await.unwrap();
         let pid = PID::new(buf[0]);
-        if pid.is_none() {
+        if pid.is_err() {
             info!("bad PID");
             continue;
         }

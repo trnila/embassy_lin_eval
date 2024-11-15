@@ -518,7 +518,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "lin-bus"
 version = "0.4.0"
-source = "git+https://github.com/trnila/lin-bus-rs?rev=4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e#4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e"
+source = "git+https://github.com/Sensirion/lin-bus-rs?rev=ce51f584e9541d4de6671d18e146de11a5814f23#ce51f584e9541d4de6671d18e146de11a5814f23"
 dependencies = [
  "bitfield",
  "byteorder",

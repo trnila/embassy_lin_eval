@@ -53,7 +53,7 @@ debug = [
 ]
 
 [patch.crates-io]
-lin-bus = { git = "https://github.com/trnila/lin-bus-rs", rev = "4b2f6a47384b7fd4263d9598cc55fb5c62f1e46e"}
+lin-bus = { git = "https://github.com/Sensirion/lin-bus-rs", rev = "ce51f584e9541d4de6671d18e146de11a5814f23"}
 embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
 embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
 embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "c9358e1f1e5d88aa0ad998c44eb2da6be73cf477" }
