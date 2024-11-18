@@ -9,6 +9,7 @@ package-mode = false
 python = "^3.8"
 plin-linux = "^0.0.3"
 ldfparser = "^0.25.0"
+cmd2 = "^2.5.6"
 
 
 [build-system]

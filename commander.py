@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import time
-from typing import List, Mapping
+from typing import List, Mapping, Optional
 from plin.device import PLIN
 from plin.structs import PLINMessage
 from plin.enums import (
@@ -14,9 +14,11 @@ import os
 import ldfparser
 from dataclasses import dataclass
 import argparse
+import cmd2
 
 
 SCHEDULER_SLOT = 0
+ALL_BOARDS = [0, 1, 2]
 
 
 class Frame:
@@ -120,13 +122,6 @@ class Scheduler:
         self.plin.start(mode=PLINMode.MASTER, baudrate=19200)
         self.plin.set_id_filter(bytearray([0xFF] * 8))
 
-        self.tasks = TaskScheduler()
-        for board in boards:
-            self.tasks.add(10, RGBTask(self, board))
-            self.tasks.add(200, SnakeLedsTask(self, board))
-
-        self.add_slave_frame("eval_0_photores")
-
     def add_master_frame(self, name: str) -> Frame:
         return Frame(self.plin, self.db.get_frame(name))
 
@@ -141,15 +136,30 @@ class Scheduler:
         self.plin.add_unconditional_schedule_slot(SCHEDULER_SLOT, 100, frame.frame_id)
         self.rx_frames[frame.frame_id] = frame
 
-    def run(self):
+    def start(self):
         self.plin.start_schedule(SCHEDULER_SLOT)
 
+    def read(self) -> Optional[PLINMessage]:
+        result = os.read(self.plin.fd, PLINMessage.buffer_length)
+        return PLINMessage.from_buffer_copy(result)
+
+
+class Demo:
+    def __init__(self, scheduler: Scheduler):
+        self.scheduler = scheduler
+        self.tasks = TaskScheduler()
+
+    def run(self, boards: List[int]):
+        for board in boards:
+            self.tasks.add(10, RGBTask(self.scheduler, board))
+            self.tasks.add(200, SnakeLedsTask(self.scheduler, board))
+            self.scheduler.add_slave_frame(f"eval_{board}_photores")
+
+        self.scheduler.start()
         while True:
             self.tasks.process()
 
-            result = os.read(self.plin.fd, PLINMessage.buffer_length)
-            frame = PLINMessage.from_buffer_copy(result)
-            # frame = plin.read()
+            frame = self.scheduler.read()
             if frame:
                 print(f"{frame.id: 2x} ", end="")
                 if frame.flags:
@@ -158,15 +168,109 @@ class Scheduler:
                     data = bytearray(frame.data[: frame.len])
                     print(f"[{frame.len}] {data.hex(' ')}")
 
-                    frame_db = self.rx_frames.get(frame.id, None)
+                    frame_db = self.scheduler.rx_frames.get(frame.id, None)
                     if frame_db:
                         print(frame_db.decode(data))
 
 
+class LinCli(cmd2.Cmd):
+    prompt = "lin> "
+
+    def __init__(self, scheduler: Scheduler):
+        super().__init__(
+            allow_cli_args=False, persistent_history_file="~/.config/lin_eval_history"
+        )
+        self.scheduler = scheduler
+
+        self.frames: Mapping[str, Frame] = {}
+        for frame in scheduler.db.get_unconditional_frames():
+            if isinstance(frame.publisher, ldfparser.node.LinMaster):
+                self.frames[frame.name] = scheduler.add_master_frame(frame.name)
+            else:
+                scheduler.add_slave_frame(frame.name)
+
+        self.scheduler.start()
+
+    rgb_parser = cmd2.Cmd2ArgumentParser()
+    rgb_parser.add_argument("board_id", type=int)
+    rgb_parser.add_argument("r", type=int)
+    rgb_parser.add_argument("g", type=int)
+    rgb_parser.add_argument("b", type=int)
+
+    @cmd2.with_argparser(rgb_parser)
+    def do_rgb(self, args):
+        prefix = f"eval_{args.board_id}_rgb"
+
+        self.frames[prefix].update(
+            {
+                f"{prefix}_r": args.r,
+                f"{prefix}_g": args.g,
+                f"{prefix}_b": args.b,
+            }
+        )
+
+    led_parser = cmd2.Cmd2ArgumentParser()
+    led_parser.add_argument("board_id", type=int)
+    led_parser.add_argument("led", type=int)
+    led_parser.add_argument("state", type=int)
+
+    @cmd2.with_argparser(led_parser)
+    def do_led(self, args):
+        prefix = f"eval_{args.board_id}_led"
+
+        self.frames[f"{prefix}s"].update(
+            {
+                f"{prefix}{args.led}": args.state,
+            }
+        )
+
+    off_parser = cmd2.Cmd2ArgumentParser()
+    off_parser.add_argument("board_id", type=int, nargs="?")
+
+    @cmd2.with_argparser(off_parser)
+    def do_off(self, args):
+        boards = [args.board_id] if args.board_id else ALL_BOARDS
+        for board_id in boards:
+            self.frames[f"eval_{board_id}_rgb"].update(
+                {
+                    f"eval_{board_id}_rgb_r": 0,
+                    f"eval_{board_id}_rgb_g": 0,
+                    f"eval_{board_id}_rgb_b": 0,
+                }
+            )
+            self.frames[f"eval_{board_id}_leds"].update(
+                {
+                    f"eval_{board_id}_led0": 0,
+                    f"eval_{board_id}_led1": 0,
+                    f"eval_{board_id}_led2": 0,
+                    f"eval_{board_id}_led3": 0,
+                }
+            )
+
+    def do_monitor(self, args):
+        while True:
+            frame = self.scheduler.read()
+            if frame:
+                if frame.flags:
+                    print(PLINFrameErrorFlag(frame.flags))
+                else:
+                    data = bytearray(frame.data[: frame.len])
+                    frame_db = self.scheduler.rx_frames.get(frame.id, None)
+                    if frame_db:
+                        print(frame_db.name, frame_db.decode(data))
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--boards", "-b", default=[0, 1, 2], type=lambda s: [int(b) for b in s.split(",")]
+    "--boards", "-b", default=ALL_BOARDS, type=lambda s: [int(b) for b in s.split(",")]
 )
+parser.add_argument("command", nargs="?", choices=["demo", "shell"], default="demo")
 args = parser.parse_args()
 
-Scheduler(args.boards).run()
+scheduler = Scheduler(args.boards)
+
+if args.command == "demo":
+    Demo(scheduler).run(args.boards)
+elif args.command == "shell":
+    cli = LinCli(scheduler)
+    cli.cmdloop()
