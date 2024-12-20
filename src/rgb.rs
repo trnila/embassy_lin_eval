@@ -1,3 +1,4 @@
+use cortex_m::prelude::_embedded_hal_Pwm;
 use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel as TimChannel};
 
 pub struct RGBLed<TIM: embassy_stm32::timer::GeneralInstance4Channel> {

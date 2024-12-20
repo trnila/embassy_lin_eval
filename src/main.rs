@@ -111,8 +111,7 @@ async fn watchdog_task(mut wdg: IndependentWatchdog<'static, IWDG>) {
 }
 
 fn get_board_id(pins: &[Input]) -> u8 {
-    return pins
-        .iter()
+    pins.iter()
         .enumerate()
         .map(|(pos, pin)| {
             if pin.is_low() {
@@ -121,7 +120,7 @@ fn get_board_id(pins: &[Input]) -> u8 {
                 0
             }
         })
-        .sum();
+        .sum()
 }
 
 #[embassy_executor::main]
