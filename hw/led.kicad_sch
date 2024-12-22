@@ -6,7 +6,7 @@
 	(paper "A4")
 	(title_block
 		(title "LIN eval")
-		(rev "v1")
+		(rev "v2")
 	)
 	(lib_symbols
 		(symbol "Device:LED"
