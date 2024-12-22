@@ -154,6 +154,7 @@ class Demo:
             self.tasks.add(10, RGBTask(self.scheduler, board))
             self.tasks.add(200, SnakeLedsTask(self.scheduler, board))
             self.scheduler.add_slave_frame(f"eval_{board}_photores")
+            self.scheduler.add_slave_frame(f"eval_{board}_temp")
 
         self.scheduler.start()
         while True:

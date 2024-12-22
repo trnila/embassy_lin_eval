@@ -17,6 +17,7 @@ Signals {
 	eval_0_led2: 1, 0, commander, eval_0;
 	eval_0_led3: 1, 0, commander, eval_0;
 	eval_0_photores_mV: 16, 0, eval_0, commander;
+	eval_0_temp_C: 16, 65536, eval_0, commander;
 
 	eval_1_rgb_r: 8, 0, commander, eval_1;
 	eval_1_rgb_g: 8, 0, commander, eval_1;
@@ -26,6 +27,7 @@ Signals {
 	eval_1_led2: 1, 0, commander, eval_1;
 	eval_1_led3: 1, 0, commander, eval_1;
 	eval_1_photores_mV: 16, 0, eval_1, commander;
+	eval_1_temp_C: 16, 65536, eval_0, commander;
 
 	eval_2_rgb_r: 8, 0, commander, eval_2;
 	eval_2_rgb_g: 8, 0, commander, eval_2;
@@ -35,6 +37,7 @@ Signals {
 	eval_2_led2: 1, 0, commander, eval_2;
 	eval_2_led3: 1, 0, commander, eval_2;
 	eval_2_photores_mV: 16, 0, eval_2, commander;
+	eval_2_temp_C: 16, 65536, eval_0, commander;
 }
 
 Frames {
@@ -55,6 +58,10 @@ Frames {
 		eval_0_photores_mV, 0;
 	}
 
+	eval_0_temp: 3, eval_0, 2 {
+		eval_0_temp_C, 0;
+	}
+
 	eval_1_rgb: 5, commander, 3 {
 		eval_1_rgb_r, 0;
 		eval_1_rgb_g, 8;
@@ -72,6 +79,10 @@ Frames {
 		eval_1_photores_mV, 0;
 	}
 
+	eval_1_temp: 8, eval_1, 2 {
+		eval_1_temp_C, 0;
+	}
+
 	eval_2_rgb: 10, commander, 3 {
 		eval_2_rgb_r, 0;
 		eval_2_rgb_g, 8;
@@ -87,6 +98,21 @@ Frames {
 
 	eval_2_photores: 12, eval_2, 2 {
 		eval_2_photores_mV, 0;
+	}
+
+	eval_2_temp: 13, eval_2, 2 {
+		eval_2_temp_C, 0;
+	}
+}
+
+Signal_representation {
+	Enc_temp: eval_0_temp_C, eval_1_temp_C, eval_2_temp_C;
+}
+
+Signal_encoding_types {
+	Enc_temp {
+		physical_value, 0, 65534, 0.0625, 0, "°C";
+		logical_value, 65535, "No measurement";
 	}
 }
 

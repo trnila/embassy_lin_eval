@@ -1,17 +1,20 @@
 #![no_std]
 #![no_main]
 
+mod ds18b20;
 mod lin_slave_driver;
 mod lin_slave_handler;
+mod onewire;
 mod rgb;
 mod signals;
 
 use cortex_m::singleton;
-use defmt::info;
+use defmt::{error, info};
 use lin_slave_handler::LinHandler;
+use onewire::OneWire;
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
-use signals::{SIGNAL_LEDS, SIGNAL_PHOTORESISTOR, SIGNAL_RGB};
+use signals::{SIGNAL_LEDS, SIGNAL_PHOTORESISTOR, SIGNAL_RGB, SIGNAL_TEMPERATURE};
 #[cfg(feature = "defmt")]
 use {defmt_rtt as _, panic_probe as _};
 
@@ -20,8 +23,10 @@ use embassy_executor::Spawner;
 use embassy_stm32::{
     adc::AdcChannel,
     gpio::OutputType,
+    mode::Async,
     time::khz,
     timer::simple_pwm::{PwmPin, SimplePwm},
+    usart::{RingBufferedUartRx, Uart, UartTx},
     wdg::IndependentWatchdog,
 };
 use embassy_stm32::{adc::AnyAdcChannel, timer::Channel as TimChannel};
@@ -39,6 +44,10 @@ use lin_slave_driver::lin_slave_driver;
 
 bind_interrupts!(struct UARTIRqs {
     USART2 => usart::BufferedInterruptHandler<USART2>;
+});
+
+bind_interrupts!(struct OneWireUsartIrqs {
+    USART1 => usart::InterruptHandler<USART1>;
 });
 
 #[embassy_executor::task]
@@ -130,6 +139,8 @@ async fn main(spawner: Spawner) {
     wdg.unleash();
     spawner.spawn(watchdog_task(wdg)).unwrap();
 
+    SIGNAL_TEMPERATURE.signal(None);
+
     let board_id = get_board_id(&[
         Input::new(p.PB9, Pull::Up),
         Input::new(p.PB8, Pull::Up),
@@ -175,10 +186,51 @@ async fn main(spawner: Spawner) {
     let dma = p.DMA1_CH1;
     let pa0 = p.PA0.degrade_adc();
 
+    let onewire_usart = Uart::new_half_duplex(
+        p.USART1,
+        p.PA9,
+        OneWireUsartIrqs,
+        p.DMA1_CH2,
+        p.DMA1_CH3,
+        usart::Config::default(),
+        // Enable readback so we can read sensor pulling data low while transmission is in progress
+        usart::HalfDuplexReadback::Readback,
+        usart::HalfDuplexConfig::OpenDrainExternal,
+    )
+    .unwrap();
+
+    const BUFFER_SIZE: usize = 16;
+    let (tx, rx) = onewire_usart.split();
+    let rx_buf: &mut [u8; BUFFER_SIZE] =
+        singleton!(TX_BUF: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE]).unwrap();
+    let rx = rx.into_ring_buffered(rx_buf);
+    let onewire = OneWire::new(tx, rx);
+
     spawner
         .spawn(lin_slave_task(uart, lin_sleep, board_id))
         .unwrap();
     spawner.spawn(rgb_task(pwm_rgb)).unwrap();
     spawner.spawn(leds_task(leds)).unwrap();
     spawner.spawn(adc_task(adc, dma, pa0)).unwrap();
+    spawner.spawn(ds18b20_task(onewire)).unwrap();
+}
+
+#[embassy_executor::task]
+async fn ds18b20_task(onewire: OneWire<UartTx<'static, Async>, RingBufferedUartRx<'static>>) {
+    let mut sensor: ds18b20::Ds18b20<UartTx<'_, Async>, RingBufferedUartRx<'_>> =
+        ds18b20::Ds18b20::new(onewire);
+    loop {
+        SIGNAL_TEMPERATURE.signal(match sensor.raw_temperature().await {
+            Ok(raw_temperature) => {
+                info!("Temperature: {}°C", raw_temperature as f32 / 16.);
+                Some(raw_temperature)
+            }
+            Err(_) => {
+                error!("Failed to read temperature");
+                None
+            }
+        });
+
+        Timer::after(Duration::from_secs(1)).await;
+    }
 }

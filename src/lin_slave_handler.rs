@@ -5,16 +5,19 @@ use crate::signals::Rgb;
 use crate::signals::SIGNAL_LEDS;
 use crate::signals::SIGNAL_PHOTORESISTOR;
 use crate::signals::SIGNAL_RGB;
+use crate::signals::SIGNAL_TEMPERATURE;
 
 const LIN_FRAME_ID_OFFSET: u8 = 5;
 const LIN_FRAME_RGB: u8 = 0;
 const LIN_FRAME_LEDS: u8 = 1;
 const LIN_FRAME_PHOTORES: u8 = 2;
+const LIN_FRAME_TEMP: u8 = 3;
 
 enum LocalFrameId {
     Rgb,
     Leds,
     Photores,
+    Temp,
 }
 
 impl LocalFrameId {
@@ -24,6 +27,7 @@ impl LocalFrameId {
             LIN_FRAME_RGB => Some(LocalFrameId::Rgb),
             LIN_FRAME_LEDS => Some(LocalFrameId::Leds),
             LIN_FRAME_PHOTORES => Some(LocalFrameId::Photores),
+            LIN_FRAME_TEMP => Some(LocalFrameId::Temp),
             _ => None,
         }
     }
@@ -32,6 +36,7 @@ impl LocalFrameId {
 pub struct LinHandler {
     board_id: u8,
     photores: [u8; 2],
+    temp: [u8; 2],
 }
 
 impl LinHandler {
@@ -39,6 +44,7 @@ impl LinHandler {
         Self {
             board_id,
             photores: [0; 2],
+            temp: [0; 2],
         }
     }
 }
@@ -72,6 +78,18 @@ impl LinSlaveHandler for LinHandler {
                     self.photores[1] = ((millivolts >> 8) & 0xFF) as u8;
                 }
                 Some(&self.photores)
+            }
+            Some(LocalFrameId::Temp) => {
+                if let Some(value) = SIGNAL_TEMPERATURE.try_take() {
+                    if let Some(temperature) = value {
+                        self.temp[0] = (temperature & 0xFF) as u8;
+                        self.temp[1] = ((temperature >> 8) & 0xFF) as u8;
+                    } else {
+                        self.temp[0] = 0xFF;
+                        self.temp[1] = 0xFF;
+                    }
+                }
+                Some(&self.temp)
             }
             _ => None,
         }
