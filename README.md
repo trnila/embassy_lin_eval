@@ -19,6 +19,5 @@ $ cargo run
 
 To initiate LIN communication, connect the PEAK PLIN-USB interface and run the following command:
 ```shell-session
-$ poetry install
-$ poetry run ./commander.py
+$ uv run ./commander.py
 ```
